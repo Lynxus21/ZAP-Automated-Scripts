@@ -1,0 +1,73 @@
+This is version 1 of the code, this is written in JavaScript and only opens the first page of the main drop down menu (Order History)
+
+var ScriptVars = Java.type('org.zaproxy.zap.extension.script.ScriptVars');
+var By = Java.type('org.openqa.selenium.By');
+var Duration = Java.type('java.time.Duration');
+
+function browserLaunched(ssutils) {
+    var token = ScriptVars.getGlobalVar("juiceshop.token");
+    var driver = ssutils.getWebDriver();
+
+    // Maximize the browser window to ensure all elements are visible
+    driver.manage().window().maximize();
+
+    // Create a wait instance (10 seconds wait)
+    var wait = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(10));
+
+    if (token != null) {
+        logger('browserLaunched ' + ssutils.getBrowserId());
+        var url = ssutils.waitForURL(5000);
+        if (url.startsWith('http://localhost:3000')) {
+            logger('url: ' + url + ' setting token ' + token);
+            var script = 'document.cookie = "token=' + token + '";\n' +
+                         'window.localStorage.setItem("token", "' + token + '");';
+            driver.executeScript(script);
+        }
+    } else {
+        logger('No token defined, proceeding with UI interactions.');
+        
+        // Popup Closer
+        // Wait for the popup dismiss button to become clickable and then simulate a click to close the popup
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector(".close-dialog") //The CSS Selector name for the "Dismiss" button of the popup
+            ));
+            var closeDialog = driver.findElement(By.cssSelector(".close-dialog"));
+            closeDialog.click(); //Simulates the click to close the popup
+            logger("Closed popup using .close-dialog");
+        } catch (e) {
+            logger("Popup not present or not clickable: " + e);
+        }
+
+        // Now that the popup has been closed, begin opening the dropdown menus
+        // To open the first dropdown menu, wait for the button to become clickable and then simulate a user click to open the dropdown menu
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("#navbarAccount") //The CSS selector name for the dropdown menu button
+            ));
+        } catch (e) {
+            logger("Timeout waiting for #navbarAccount to be clickable: " + e);
+            throw e;
+        }
+        var firstButton = driver.findElement(By.cssSelector("#navbarAccount"));
+        firstButton.click(); 
+
+
+        //This Opens the Orders & Payment dropdown menu
+
+        // Wait for the 2nd second dropdown button: button.mat-mdc-menu-item:nth-child(2)
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button.mat-mdc-menu-item:nth-child(2)") //The CSS selector name for the dropdown menu button
+            ));
+        } catch (e) {
+            logger('Timeout waiting for the second dropdown button: ' + e);
+            throw e;
+        }
+        var secondButton = driver.findElement(By.cssSelector("button.mat-mdc-menu-item:nth-child(2)"));
+        secondButton.click();
+
+// Logs
+function logger() {
+    print('[' + this['zap.script.name'] + '] ' + arguments[0]);
+}
