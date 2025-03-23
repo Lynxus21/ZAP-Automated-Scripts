@@ -1,0 +1,120 @@
+This is version 2 of the code, this is written in JavaScript and opens the first and second pages of the main drop down menu (Order History and Recycle)
+
+var ScriptVars = Java.type('org.zaproxy.zap.extension.script.ScriptVars');
+var By = Java.type('org.openqa.selenium.By');
+var Duration = Java.type('java.time.Duration');
+
+function browserLaunched(ssutils) {
+    var token = ScriptVars.getGlobalVar("juiceshop.token");
+    var driver = ssutils.getWebDriver();
+
+    driver.manage().window().maximize();
+
+    var wait = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(10));
+
+    if (token != null) {
+        logger('browserLaunched ' + ssutils.getBrowserId());
+        var url = ssutils.waitForURL(5000);
+        if (url.startsWith('http://localhost:3000')) {
+            logger('url: ' + url + ' setting token ' + token);
+            var script = 'document.cookie = "token=' + token + '";\n' +
+                         'window.localStorage.setItem("token", "' + token + '");';
+            driver.executeScript(script);
+        }
+    } else {
+        logger('No token defined, proceeding with UI interactions.');
+
+        // POPUP CLOSER
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.visibilityOfElementLocated(
+                By.cssSelector(".close-dialog")
+            ));
+            var closeDialog = driver.findElement(By.cssSelector(".close-dialog"));
+            if (closeDialog.isDisplayed()) {
+                closeDialog.click();
+                logger("Closed popup using .close-dialog");
+            }
+        } catch (e) {
+            logger("Popup not visible or clickable: " + e);
+        }
+
+        // INITIAL DROPDOWN INTERACTIONS
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("#navbarAccount")
+            ));
+            var firstButton = driver.findElement(By.cssSelector("#navbarAccount"));
+            firstButton.click();
+        } catch (e) {
+            logger("Timeout waiting for #navbarAccount to be clickable: " + e);
+            throw e;
+        }
+
+        // Payments & History
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button.mat-mdc-menu-item:nth-child(2)")
+            ));
+            var secondButton = driver.findElement(By.cssSelector("button.mat-mdc-menu-item:nth-child(2)"));
+            secondButton.click();
+        } catch (e) {
+            logger("Timeout waiting for the second dropdown button: " + e);
+            throw e;
+        }
+
+        // ORDER HISTORY PAGE
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button.ng-tns-c1923052698-5:nth-child(1)")
+            ));
+            var orderHistoryButton = driver.findElement(By.cssSelector("button.ng-tns-c1923052698-5:nth-child(1)"));
+            orderHistoryButton.click();
+            // Wait for the Order History page to load properly
+            java.lang.Thread.sleep(2000); // adjust the delay as necessary
+        } catch (e) {
+            logger("Timeout waiting for the Order History button: " + e);
+            throw e;
+        }
+
+        // Reopen the dropdown menus on the Order History page
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("#navbarAccount")
+            ));
+            var firstButtonOrderHistory = driver.findElement(By.cssSelector("#navbarAccount"));
+            firstButtonOrderHistory.click();
+        } catch (e) {
+            logger("Timeout waiting for #navbarAccount on Order History page: " + e);
+            throw e;
+        }
+
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button.mat-mdc-menu-item:nth-child(2)")
+            ));
+            var secondButtonOrderHistory = driver.findElement(By.cssSelector("button.mat-mdc-menu-item:nth-child(2)"));
+            secondButtonOrderHistory.click();
+        } catch (e) {
+            logger("Timeout waiting for the second dropdown button on Order History page: " + e);
+            throw e;
+        }
+
+        // OPENS RECYCLE PAGE
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("button.ng-tns-c1923052698-5:nth-child(2)")
+            ));
+            var recycleButton = driver.findElement(By.cssSelector("button.ng-tns-c1923052698-5:nth-child(2)"));
+            driver.executeScript("arguments[0].scrollIntoView(true);", recycleButton);
+            recycleButton.click();
+            logger("Recycle Page button clicked successfully.");
+        } catch (e) {
+            logger("Timeout waiting for the Recycle Page button or other issue: " + e);
+            throw e;
+        }
+    }
+}
+
+function logger() {
+    print('[' + this['zap.script.name'] + '] ' + arguments[0]);
+}
