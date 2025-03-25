@@ -1,0 +1,229 @@
+// Import necessary Java classes for ZAP ScriptVars, Selenium By, and Duration management
+var ScriptVars = Java.type('org.zaproxy.zap.extension.script.ScriptVars');
+var By = Java.type('org.openqa.selenium.By');
+var Duration = Java.type('java.time.Duration');
+
+
+// Main function that is triggered when the browser is launched
+function browserLaunched(ssutils) { 
+    // Retrieve the stored token from ZAP global variables
+    var token = ScriptVars.getGlobalVar("juiceshop.token");
+    var driver = ssutils.getWebDriver();
+
+    // Maximises all the browser windows
+    driver.manage().window().maximize();
+
+    // Create a WebDriver wait object with a timeout of 10 seconds
+    var wait = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(10));
+
+    // If a token is defined, inject it into cookies and localStorage
+    if (token != null) {
+        logger('browserLaunched ' + ssutils.getBrowserId());
+        var url = ssutils.waitForURL(5000); // Wait for a URL with a timeout
+        if (url.startsWith('http://localhost:3000')) {
+            logger('url: ' + url + ' setting token ' + token);
+            var script = 'document.cookie = "token=' + token + '";\n' +
+                         'window.localStorage.setItem("token", "' + token + '");';
+            driver.executeScript(script); // Execute JavaScript to set token
+        }
+    } else {
+        logger('No token defined, proceeding with UI interactions.');
+
+        // POPUP CLOSER: Attempts to close any popup using the '.close-dialog' selector
+        try {
+            //  Waits until the element is visible by looking for the CSS selector
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.visibilityOfElementLocated(
+                By.cssSelector(".close-dialog")
+            ));
+            /*  Finds the element by looking for the CSS Selector
+             *   If the element is dsiplayed then simulate a user click to close it
+             */
+            var closeDialog = driver.findElement(By.cssSelector(".close-dialog"));
+            if (closeDialog.isDisplayed()) {
+                closeDialog.click();
+                logger("Closed popup using .close-dialog");
+            }
+        } catch (e) {
+            logger("Popup not visible or clickable: " + e);
+        }
+
+        // Opens first dropdown menu (Account)
+        try {
+            // Waits for the element to be clickable by looking for the CSS selector
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("#navbarAccount")
+            ));
+            /*  Finds the element by looking for the CSS Selector
+            *   then simulate a user click to open it
+            */
+            var firstButton = driver.findElement(By.cssSelector("#navbarAccount"));
+            firstButton.click();
+        } catch (e) {
+            logger("Timeout waiting for #navbarAccount to be clickable: " + e);
+            throw e;
+        }
+
+        // Opens second dropdown menu (Payments & History)
+        try {
+            // Waits for the element to be clickable by looking for the CSS selector
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button.mat-mdc-menu-item:nth-child(2)")
+            ));
+            /*  Finds the element by looking for the CSS Selector
+            *   then simulate a user click to open it
+            */
+            var secondButton = driver.findElement(By.cssSelector("button.mat-mdc-menu-item:nth-child(2)"));
+            secondButton.click();
+        } catch (e) {
+            logger("Timeout waiting for the second dropdown button: " + e);
+            throw e;
+        }
+
+        // Opens order history page
+        try {
+            // Waits for the element to be clickable by looking for the CSS selector
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button.ng-tns-c1923052698-5:nth-child(1)")
+            ));
+            /*  Finds the element by looking for the CSS Selector
+            *   then simulate a user click to open it
+            */
+            var orderHistoryButton = driver.findElement(By.cssSelector("button.ng-tns-c1923052698-5:nth-child(1)"));
+            orderHistoryButton.click();
+            // Wait for the Order History page to load properly
+            java.lang.Thread.sleep(2000); // adjust the delay as necessary
+        } catch (e) {
+            logger("Timeout waiting for the Order History button: " + e);
+            throw e;
+        }
+
+        // Reopens the dropdown menus on the Order History page
+
+        // Opens first dropdown menu (Account)
+        try {
+            // Waits for the element to be clickable by looking for the CSS selector
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("#navbarAccount")
+            ));
+            /*  Finds the element by looking for the CSS Selector
+            *   then simulate a user click to open it
+            */
+            var firstButtonOrderHistory = driver.findElement(By.cssSelector("#navbarAccount"));
+            firstButtonOrderHistory.click();
+        } catch (e) {
+            logger("Timeout waiting for #navbarAccount on Order History page: " + e);
+            throw e;
+        }
+
+        // Opens second dropdown menu (Payments & History)
+        try {
+            // Waits for the element to be clickable by looking for the CSS selector
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button.mat-mdc-menu-item:nth-child(2)")
+            ));
+            /*  Finds the element by looking for the CSS Selector
+            *   then simulate a user click to open it
+            */
+            var secondButtonOrderHistory = driver.findElement(By.cssSelector("button.mat-mdc-menu-item:nth-child(2)"));
+            secondButtonOrderHistory.click();
+        } catch (e) {
+            logger("Timeout waiting for the second dropdown button on Order History page: " + e);
+            throw e;
+        }
+
+        // Opens Recyling page
+        try {
+            //  Waits until the element is visible by looking for the CSS selector
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("button.ng-tns-c1923052698-5:nth-child(2)")
+            ));
+             /*  Finds the element by looking for the CSS Selector
+            *   then simulate a user click to open it
+            */
+            var recycleButton = driver.findElement(By.cssSelector("button.ng-tns-c1923052698-5:nth-child(2)"));
+            //driver.executeScript("arguments[0].scrollIntoView(true);", recycleButton); Scrolls down the webpage to get the button into view if isn't already
+            recycleButton.click();
+            logger("Recycle Page button clicked successfully.");
+        } catch (e) {
+            logger("Timeout waiting for the Recycle Page button or other issue: " + e);
+            throw e;
+        }
+        
+        // Reopen the dropdown menus on the Recyling page
+
+        // Opens first dropdown menu (Account)
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("#navbarAccount")
+            ));
+            var firstButtonOrderHistory = driver.findElement(By.cssSelector("#navbarAccount"));
+            firstButtonOrderHistory.click();
+        } catch (e) {
+            logger("Timeout waiting for #navbarAccount on Order History page: " + e);
+            throw e;
+        }
+
+        // Opens second dropdown menu (Payments & History)
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button.mat-mdc-menu-item:nth-child(2)")
+            ));
+            var secondButtonOrderHistory = driver.findElement(By.cssSelector("button.mat-mdc-menu-item:nth-child(2)"));
+            secondButtonOrderHistory.click();
+        } catch (e) {
+            logger("Timeout waiting for the second dropdown button on Order History page: " + e);
+            throw e;
+        }
+
+        // OPENS SAVED ADDRESSES PAGE
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("button.ng-tns-c1923052698-5:nth-child(4)")
+            ));
+            var savedAddressesButton = driver.findElement(By.cssSelector("button.ng-tns-c1923052698-5:nth-child(4)"));
+            //driver.executeScript("arguments[0].scrollIntoView(true);", recycleButton); Scrolls down the webpage to get the button into view if isn't already
+            savedAddressesButton.click();
+            logger("Saved Addresses Page button clicked successfully.");
+        } catch (e) {
+            logger("Timeout waiting for the Saved Addresses Page button or other issue: " + e);
+            throw e;
+        }
+        
+        // FIND AND CLICK ALL BUTTON TAGS ON THE SAVED ADDRESSES PAGE USING RE-FETCH AND REVERSE ORDER
+try {
+    // Allow the page to load completely.
+    java.lang.Thread.sleep(2000);
+    // Get the total number of button elements initially
+    var buttonsCount = driver.findElements(By.tagName("button")).size();
+    logger("Initially found " + buttonsCount + " button(s) on the Saved Addresses page.");
+    
+    // Iterate in reverse order
+    for (var i = buttonsCount - 1; i >= 0; i--) {
+        try {
+            // Re-fetch the list each time to avoid stale references
+            var currentButtons = driver.findElements(By.tagName("button"));
+            if (i < currentButtons.size()) {
+                var btn = currentButtons.get(i);
+                // Scroll into view before clicking
+                driver.executeScript("arguments[0].scrollIntoView(true);", btn);
+                java.lang.Thread.sleep(500); // optional delay for stability
+                driver.executeScript("arguments[0].click();", btn);
+                logger("Clicked button [" + i + "]: " + btn.getText());
+                java.lang.Thread.sleep(500); // optional delay after click
+            }
+        } catch (clickError) {
+            logger("Error clicking button [" + i + "]: " + clickError);
+        }
+    }
+    logger("Finished processing all button tags on the Saved Addresses page.");
+} catch (e) {
+    logger("Error processing button tags on the Saved Addresses page: " + e);
+    throw e;
+}
+
+    }
+}
+
+function logger() {
+    print('[' + this['zap.script.name'] + '] ' + arguments[0]);
+}
