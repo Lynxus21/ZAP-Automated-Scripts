@@ -1,0 +1,133 @@
+// Import necessary Java classes for ZAP ScriptVars, Selenium By, and Duration management
+var ScriptVars = Java.type('org.zaproxy.zap.extension.script.ScriptVars');
+var By = Java.type('org.openqa.selenium.By');
+var Duration = Java.type('java.time.Duration');
+var Thread = Java.type('java.lang.Thread');
+
+// Helper function to wait for an element and click it
+function waitAndClick(driver, wait, selector, logMsg, throwError) {
+    try {
+        wait.until(org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable(By.cssSelector(selector)));
+        var element = driver.findElement(By.cssSelector(selector));
+        element.click();
+        logger(logMsg);
+    } catch (e) {
+        var errorMsg = "Timeout or error waiting for element '" + selector + "': " + e;
+        logger(errorMsg);
+        if (throwError) {
+            throw e;
+        }
+    }
+}
+
+// Helper function to wait for an element presence
+function waitAndFind(driver, wait, selector) {
+    wait.until(org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElementLocated(By.cssSelector(selector)));
+    return driver.findElement(By.cssSelector(selector));
+}
+
+// Main function triggered when the browser is launched
+function browserLaunched(ssutils) { 
+    var token = ScriptVars.getGlobalVar("juiceshop.token");
+    var driver = ssutils.getWebDriver();
+    driver.manage().window().maximize();
+    var wait = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(10));
+
+    // If token is defined, inject into cookies and localStorage
+    if (token != null) {
+        logger('browserLaunched ' + ssutils.getBrowserId());
+        var url = ssutils.waitForURL(5000);
+        if (url.startsWith('http://localhost:3000')) {
+            logger('URL: ' + url + ' - setting token: ' + token);
+            var script = 'document.cookie = "token=' + token + '";\n' +
+                         'window.localStorage.setItem("token", "' + token + '");';
+            driver.executeScript(script);
+        }
+    } else {
+        logger('No token defined, proceeding with UI interactions.');
+
+        // Attempt to close any popup using the ".close-dialog" selector
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".close-dialog")));
+            var closeDialog = driver.findElement(By.cssSelector(".close-dialog"));
+            if (closeDialog.isDisplayed()) {
+                closeDialog.click();
+                logger("Closed popup using .close-dialog");
+            }
+        } catch (e) {
+            logger("Popup not visible or clickable: " + e);
+        }
+
+        // Open Account dropdown
+        waitAndClick(driver, wait, "#navbarAccount", "Opened Account dropdown", true);
+        // Open Payments & History dropdown
+        waitAndClick(driver, wait, "button.mat-mdc-menu-item:nth-child(2)", "Opened Payments & History dropdown", true);
+        // Open Order History page
+        waitAndClick(driver, wait, "button.ng-tns-c1923052698-5:nth-child(1)", "Opened Order History page", true);
+        Thread.sleep(2000); // Allow Order History page to load
+
+        // Reopen dropdowns on Order History page
+        waitAndClick(driver, wait, "#navbarAccount", "Reopened Account dropdown on Order History page", true);
+        waitAndClick(driver, wait, "button.mat-mdc-menu-item:nth-child(2)", "Reopened Payments & History dropdown on Order History page", true);
+
+        // Open Recycling page
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElementLocated(By.cssSelector("button.ng-tns-c1923052698-5:nth-child(2)")));
+            var recycleButton = driver.findElement(By.cssSelector("button.ng-tns-c1923052698-5:nth-child(2)"));
+            recycleButton.click();
+            logger("Recycle Page button clicked successfully.");
+        } catch (e) {
+            logger("Timeout or error for Recycle Page button: " + e);
+            throw e;
+        }
+        
+        // Reopen dropdowns on Recycling page (same selectors as before)
+        waitAndClick(driver, wait, "#navbarAccount", "Reopened Account dropdown on Recycling page", true);
+        waitAndClick(driver, wait, "button.mat-mdc-menu-item:nth-child(2)", "Reopened Payments & History dropdown on Recycling page", true);
+
+        // Open Saved Addresses page
+        try {
+            wait.until(org.openqa.selenium.support.ui.ExpectedConditions.presenceOfElementLocated(By.cssSelector("button.ng-tns-c1923052698-5:nth-child(4)")));
+            var savedAddressesButton = driver.findElement(By.cssSelector("button.ng-tns-c1923052698-5:nth-child(4)"));
+            savedAddressesButton.click();
+            logger("Saved Addresses Page button clicked successfully.");
+        } catch (e) {
+            logger("Timeout or error for Saved Addresses Page button: " + e);
+            throw e;
+        }
+        
+        // Find and click all button tags on the Saved Addresses page (in reverse order)
+        try {
+            Thread.sleep(2000); // Ensure the page is fully loaded
+            var buttons = driver.findElements(By.tagName("button"));
+            var buttonsCount = buttons.size();
+            logger("Initially found " + buttonsCount + " button(s) on the Saved Addresses page.");
+            
+            for (var i = buttonsCount - 1; i >= 0; i--) {
+                try {
+                    // Re-fetch button list to avoid stale references
+                    var currentButtons = driver.findElements(By.tagName("button"));
+                    if (i < currentButtons.size()) {
+                        var btn = currentButtons.get(i);
+                        driver.executeScript("arguments[0].scrollIntoView(true);", btn);
+                        Thread.sleep(500); // delay for stability
+                        driver.executeScript("arguments[0].click();", btn);
+                        logger("Clicked button [" + i + "]: " + btn.getText());
+                        Thread.sleep(500); // delay after click
+                    }
+                } catch (clickError) {
+                    logger("Error clicking button [" + i + "]: " + clickError);
+                }
+            }
+            logger("Finished processing all button tags on the Saved Addresses page.");
+        } catch (e) {
+            logger("Error processing buttons on the Saved Addresses page: " + e);
+            throw e;
+        }
+    }
+}
+
+// Logger function for consistent logging
+function logger() {
+    print('[' + this['zap.script.name'] + '] ' + arguments[0]);
+}
