@@ -1,0 +1,165 @@
+// Import necessary Java classes for Selenium and script execution
+var ScriptVars = Java.type('org.zaproxy.zap.extension.script.ScriptVars'); // For accessing global variables in ZAP
+var By = Java.type('org.openqa.selenium.By'); // For locating elements by CSS selectors or other methods
+var Duration = Java.type('java.time.Duration'); // For defining wait times
+var Thread = Java.type('java.lang.Thread'); // For adding sleep delays
+var ExpectedConditions = Java.type('org.openqa.selenium.support.ui.ExpectedConditions'); // For waiting until conditions are met (e.g., element to be clickable)
+
+// Logger function for consistent logging of script actions
+function logger(msg) {
+    // Print log messages with the script name for better traceability
+    print('[' + this['zap.script.name'] + '] ' + msg);
+}
+
+// Helper function to wait for an element to be clickable and click it
+function waitAndClick(driver, wait, selector, logMsg) {
+    try {
+        // Wait until the element is clickable
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(selector)));
+        // Click the element
+        driver.findElement(By.cssSelector(selector)).click();
+        // Log the action
+        logger(logMsg);
+    } catch (e) {
+        // Log any errors that occur while trying to click the element
+        logger("Error clicking '" + selector + "': " + e);
+    }
+}
+
+// Helper function to click all buttons present on the current page
+function clickAllButtons(driver, wait) {
+    try {
+        // Brief delay to ensure the page and its elements load
+        Thread.sleep(2000);
+        // Find all button elements on the page
+        var buttons = driver.findElements(By.tagName("button"));
+        var count = buttons.size();
+        logger("Found " + count + " button(s) on the page.");
+
+        // Iterate over all buttons and click them one by one
+        for (var i = 0; i < count; i++) {
+            try {
+                // Re-fetch the buttons to avoid using stale elements
+                var currentButtons = driver.findElements(By.tagName("button"));
+                if (i < currentButtons.size()) {
+                    var btn = currentButtons.get(i);
+                    // Ensure the button is visible and enabled before clicking
+                    if (btn.isDisplayed() && btn.isEnabled()) {
+                        // Scroll the button into view before clicking it
+                        driver.executeScript("arguments[0].scrollIntoView(true);", btn);
+                        Thread.sleep(500); // Small delay for stability
+                        driver.executeScript("arguments[0].click();", btn);
+                        // Log the action after clicking the button
+                        logger("Clicked button [" + i + "]: " + btn.getText());
+                        Thread.sleep(500); // Allow any triggered actions (like page updates) to load
+                    } else {
+                        // Log if the button is not visible or enabled
+                        logger("Button [" + i + "] is not visible or enabled.");
+                    }
+                }
+            } catch (clickError) {
+                // Log any errors while attempting to click a button
+                logger("Error clicking button [" + i + "]: " + clickError);
+            }
+        }
+        logger("Finished clicking all buttons on this page.");
+    } catch (e) {
+        // Log any general errors that occur during the process of clicking buttons
+        logger("Error during clickAllButtons: " + e);
+    }
+}
+
+// Helper function to navigate to a page and click all buttons
+function navigateAndCrawl(driver, wait, selectors, pageName) {
+    logger("Navigating to " + pageName);
+    // Loop through each selector to navigate to the page
+    selectors.forEach(function(selector) {
+        waitAndClick(driver, wait, selector, "Clicked '" + selector + "' for " + pageName);
+        Thread.sleep(1000); // Small delay between navigation actions to avoid overloading the page
+    });
+    
+    // Wait for the page to fully load and ensure all buttons are available
+    Thread.sleep(2000); 
+    logger("Crawling " + pageName + " by clicking all buttons.");
+    // Click all buttons on the page once it's fully loaded
+    clickAllButtons(driver, wait);
+}
+
+// Main function triggered when the browser is launched
+function browserLaunched(ssutils) {
+    // Retrieve authentication token if available from the global variables
+    var token = ScriptVars.getGlobalVar("juiceshop.token");
+    // Access the web driver used for automation
+    var driver = ssutils.getWebDriver();
+    driver.manage().window().maximize(); // Maximise the browser window for better visibility
+    var wait = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(10)); // Create an explicit wait with a 10-second timeout
+
+    // If a token is available, inject it into cookies and local storage for session handling
+    if (token) {
+        logger("Injecting token into cookies and localStorage");
+        // Wait for the URL to load
+        var url = ssutils.waitForURL(5000);
+        // Check if the URL matches the expected local server URL
+        if (url.startsWith("http://localhost:3000")) {
+            // Inject the token into the browser's cookies and local storage using JavaScript
+            var script = 'document.cookie = "token=' + token + '";\n' +
+                         'window.localStorage.setItem("token", "' + token + '");';
+            driver.executeScript(script);
+        }
+    } else {
+        logger("No token provided; proceeding with UI interactions.");
+        // Attempt to close any interfering popup if it appears
+        try {
+            wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".close-dialog")));
+            var closeDialog = driver.findElement(By.cssSelector(".close-dialog"));
+            if (closeDialog.isDisplayed()) {
+                closeDialog.click(); // Click the close button
+                logger("Closed popup using .close-dialog");
+            }
+        } catch (e) {
+            // Log if no popup is found or the popup is not clickable
+            logger("No popup found or popup not clickable: " + e);
+        }
+    }
+
+    // Define the pages and their corresponding navigation selectors
+    var pages = [
+        { 
+            name: "Order History", 
+            selectors: [
+                "#navbarAccount", // Selector for account menu
+                "button.mat-mdc-menu-item:nth-child(2)", // Selector for "Order History" option
+                "button.ng-tns-c1923052698-5:nth-child(1)" // Selector for the "Order History" button
+            ]
+        },
+        { 
+            name: "Recycling", 
+            selectors: [
+                "#navbarAccount", 
+                "button.mat-mdc-menu-item:nth-child(2)", 
+                "button.ng-tns-c1923052698-5:nth-child(2)"
+            ]
+        },
+        { 
+            name: "Saved Addresses", 
+            selectors: [
+                "#navbarAccount", 
+                "button.mat-mdc-menu-item:nth-child(2)", 
+                "button.ng-tns-c1923052698-5:nth-child(4)"
+            ]
+        },
+        { 
+            name: "Payment Details", 
+            selectors: [
+                "#navbarAccount", 
+                "button.mat-mdc-menu-trigger:nth-child(2)", 
+                "button.mat-mdc-menu-item:nth-child(5)"
+            ]
+        }
+    ];
+
+    // Navigate and crawl through each page, clicking all the buttons
+    pages.forEach(function(page) {
+        navigateAndCrawl(driver, wait, page.selectors, page.name);
+    });
+}
