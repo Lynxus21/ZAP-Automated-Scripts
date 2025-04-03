@@ -1,46 +1,52 @@
-// Import necessary Java classes
+// Import necessary Java classes for Selenium and script execution
 var ScriptVars = Java.type('org.zaproxy.zap.extension.script.ScriptVars');
 var By = Java.type('org.openqa.selenium.By');
 var Duration = Java.type('java.time.Duration');
 var Thread = Java.type('java.lang.Thread');
 var ExpectedConditions = Java.type('org.openqa.selenium.support.ui.ExpectedConditions');
 
-// Logger function for consistent logging
+// Logger function for consistent logging of script actions
 function logger(msg) {
     print('[' + this['zap.script.name'] + '] ' + msg);
 }
 
-// Helper function to wait for an element and click it
+// Helper function to wait for an element to be clickable and click it
 function waitAndClick(driver, wait, selector, logMsg) {
     try {
+        // Wait for the element to be clickable
         wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(selector)));
+        // Click the element
         driver.findElement(By.cssSelector(selector)).click();
+        // Log the action
         logger(logMsg);
     } catch (e) {
         logger("Error clicking '" + selector + "': " + e);
     }
 }
 
-// Helper function to click all buttons on the current page
+// Helper function to click all buttons present on the current page
 function clickAllButtons(driver, wait) {
     try {
-        // Wait for the page to load buttons
+        // Brief delay to ensure the page loads
         Thread.sleep(2000);
+        // Find all button elements on the page
         var buttons = driver.findElements(By.tagName("button"));
         var count = buttons.size();
         logger("Found " + count + " button(s) on the page.");
 
-        // Loop over each button (re-fetching to avoid stale elements)
+        // Iterate over the buttons and click them
         for (var i = 0; i < count; i++) {
             try {
+                // Re-fetch buttons to avoid stale elements
                 var currentButtons = driver.findElements(By.tagName("button"));
                 if (i < currentButtons.size()) {
                     var btn = currentButtons.get(i);
+                    // Scroll into view before clicking
                     driver.executeScript("arguments[0].scrollIntoView(true);", btn);
-                    Thread.sleep(500); // brief delay for stability
+                    Thread.sleep(500); // Small delay for stability
                     driver.executeScript("arguments[0].click();", btn);
                     logger("Clicked button [" + i + "]: " + btn.getText());
-                    Thread.sleep(500); // allow any triggered actions to load
+                    Thread.sleep(500); // Allow any triggered actions to load
                 }
             } catch (clickError) {
                 logger("Error clicking button [" + i + "]: " + clickError);
@@ -52,27 +58,28 @@ function clickAllButtons(driver, wait) {
     }
 }
 
-// Helper function to navigate to a page and crawl (click all buttons)
+// Helper function to navigate to a page and click all buttons
 function navigateAndCrawl(driver, wait, selectors, pageName) {
     logger("Navigating to " + pageName);
-    // Perform each navigation step by clicking the selectors sequentially
+    // Click each selector sequentially to reach the target page
     selectors.forEach(function(selector) {
         waitAndClick(driver, wait, selector, "Clicked '" + selector + "' for " + pageName);
-        Thread.sleep(1000); // small pause between navigation actions
+        Thread.sleep(1000); // Small delay between navigation actions
     });
-    Thread.sleep(2000); // ensure the page loads
+    Thread.sleep(2000); // Ensure page has fully loaded
     logger("Crawling " + pageName + " by clicking all buttons.");
     clickAllButtons(driver, wait);
 }
 
 // Main function triggered when the browser is launched
 function browserLaunched(ssutils) {
+    // Retrieve authentication token if available
     var token = ScriptVars.getGlobalVar("juiceshop.token");
     var driver = ssutils.getWebDriver();
-    driver.manage().window().maximize();
+    driver.manage().window().maximize(); // Maximise the browser window
     var wait = new org.openqa.selenium.support.ui.WebDriverWait(driver, Duration.ofSeconds(10));
 
-    // If a token is available, inject it and then proceed to crawl pages
+    // If a token is available, inject it into cookies and local storage
     if (token) {
         logger("Injecting token into cookies and localStorage");
         var url = ssutils.waitForURL(5000);
@@ -83,7 +90,7 @@ function browserLaunched(ssutils) {
         }
     } else {
         logger("No token provided; proceeding with UI interactions.");
-        // Attempt to close any popup that might interfere
+        // Attempt to close any interfering popup
         try {
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".close-dialog")));
             var closeDialog = driver.findElement(By.cssSelector(".close-dialog"));
@@ -96,7 +103,7 @@ function browserLaunched(ssutils) {
         }
     }
 
-    // Define the pages and their navigation selectors in order
+    // Define the pages and their corresponding navigation selectors
     var pages = [
         { 
             name: "Order History", 
@@ -132,9 +139,8 @@ function browserLaunched(ssutils) {
         }
     ];
 
-    // Loop through each page, navigate, and click all buttons to crawl the page
+    // Iterate through each page, navigate to it, and click all buttons
     pages.forEach(function(page) {
         navigateAndCrawl(driver, wait, page.selectors, page.name);
     });
 }
-
